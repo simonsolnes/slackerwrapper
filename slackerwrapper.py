@@ -31,7 +31,7 @@ class SlackerWrapper():
         self.slacker = Slacker(token)
         self.fetched = False
 
-        self.channels_history = {}
+        self.ch_his = {}
 
     def test_api(self):
         if not internet_on(): stop("no internet")
@@ -83,8 +83,6 @@ class SlackerWrapper():
         self.fetched = True
 
     def fetch_history(self, channels, count):
-        if count > 1000: count = 1000
-
         data_queue = queue.Queue()
         threads = []
         for channel in channels:
@@ -111,7 +109,7 @@ class SlackerWrapper():
                 for message in data["messages"][::-1]:
                     if "user" in message and "text" in message:
                         hist.append({"name": self.users_name[message["user"]] , "text" : message["text"]})
-            self.channels_history[channel] = hist
+            self.ch_his[channel] = hist
 
 
     def send_message(self, channel, text):
@@ -133,5 +131,4 @@ class SlackerWrapper():
         return channel in self.channels
 
     def get_channel_history(self, channel):
-        return self.channels_history[channel]
-
+        return self.ch_his[channel]
