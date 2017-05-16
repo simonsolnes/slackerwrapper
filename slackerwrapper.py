@@ -32,7 +32,6 @@ class SlackerWrapper():
         self.fetched = False
 
         self.channels_history = {}
-        self.ims_history = {}
 
     def test_api(self):
         if not internet_on(): stop("no internet")
@@ -55,13 +54,9 @@ class SlackerWrapper():
         
         self.users = []
         self.users_name = {}
-        self.users_id = {}
         self.channels = []
-        self.channels_name = {}
         self.channels_id = {}
         self.ims = []
-        self.ims_name = {}
-        self.ims_id = {}
 
         while not data_queue.empty():
             data = data_queue.get()
@@ -72,47 +67,56 @@ class SlackerWrapper():
                 for channel in data["channels"]:
                     if "name" in channel and "id" in channel:
                         self.channels_id[channel["name"]] = channel["id"]
-                        self.channels_name[channel["id"]] = channel["name"]
                         self.channels.append(channel["name"])
 
             if "ims" in data:
                 for im in data["ims"]:
                     if im["user"] in self.users_name:
-                        self.ims_id[self.users_name[im["user"]]] = im["id"]
-                        self.ims_name[im["id"]] = self.users_name[im["user"]]
+                        self.channels_id[self.users_name[im["user"]]] = im["id"]
                         self.ims.append(self.users_name[im["user"]])
+                        self.channels.append(self.users_name[im["user"]])
             if "members" in data:
                 for user in data["members"]:
                     if "name" in user and "id" in user:
-                        self.users_id[user["name"]] = user["id"]
                         self.users_name[user["id"]] = user["name"]
                         self.users.append(user["name"])
         self.fetched = True
 
-    def fetch_channel_history(self, channel, count):
+    def fetch_history(self, channels, count):
         if count > 1000: count = 1000
-        if channel in self.channels:
-            data = self.slacker.channels.history(channel = self.channels_id[channel], count = count).body
-            if not "ok" in data or not data["ok"]: raise Exception("cannot updatate channel history")
+
+        data_queue = queue.Queue()
+        threads = []
+        for channel in channels:
+            if channel in self.ims:
+                threads.append(threading.Thread(target = data_queue.put, 
+                    args = [{"channel" : channel,
+                    "data" : self.slacker.im.history(channel = self.channels_id[channel], count = count).body}]))
+            elif channel in self.channels:
+                threads.append(threading.Thread(target = data_queue.put, 
+                    args = [{"channel" : channel,
+                    "data" : self.slacker.channels.history(channel = self.channels_id[channel], count = count).body}]))
+            else: raise Exception("not a channel")
+        if not internet_on(): stop("no internet")
+        for thread in threads: thread.start()
+        for thread in threads: thread.join()
+
+        while not data_queue.empty():
+            data = data_queue.get()
+            channel = data["channel"]
+            data = data["data"]
+            if not "ok" in data or not data["ok"]: raise Exception("cannot fetch history")
             hist = []
-            for message in data["messages"][::-1]:
-                if "user" in message and "text" in message:
-                    hist.append({"name": self.users_name[message["user"]] , "text" : message["text"]})
+            if "messages" in data:
+                for message in data["messages"][::-1]:
+                    if "user" in message and "text" in message:
+                        hist.append({"name": self.users_name[message["user"]] , "text" : message["text"]})
             self.channels_history[channel] = hist
-        elif channel in self.ims:
-            data = self.slacker.im.history(channel = self.ims_id[channel], count = count).body
-            if not "ok" in data or not data["ok"]: raise Exception("cannot updatate im history")
-            hist = []
-            for message in data["messages"][::-1]:
-                if "user" in message and "text" in message:
-                    hist.append({"name": self.users_name[message["user"]], "text":message["text"]})
-            self.ims_history[channel] = hist
-        else:raise Exception("channel doesnt exist")
+
 
     def send_message(self, channel, text):
         if channel in self.channels: channel = self.channels_id[channel]
-        elif channel in self.ims: channel = self.ims_id[channel]
-        else: raise Exception("Trying to send a message to a channel/im that does not exist")
+        else: raise Exception("Trying to send a message to a channelthat does not exist")
         data = self.slacker.chat.post_message( channel = channel, text = text, as_user = True, link_names = True, unfurl_links = False, unfurl_media = False).body
         if not data["ok"]: raise Exception("cannot send message")
 
@@ -123,15 +127,11 @@ class SlackerWrapper():
         return user in self.users
 
     def get_channels(self):
-        return self.channels + self.ims
+        return self.channels
 
     def has_channel(self, channel):
-        return channel in self.channels or channel in self.ims
+        return channel in self.channels
 
     def get_channel_history(self, channel):
-        if channel in self.channels:
-            return self.channels_history[channel]
-        elif channel in self.ims:
-            return self.ims_history[channel]
-        else: raise Exception("not a channel" + channel)
+        return self.channels_history[channel]
 

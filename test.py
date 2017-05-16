@@ -21,14 +21,14 @@ print("channels:")
 for channel in slack.get_channels():
     print("\t" + channel)
 
-print("channel history for testing")
-slack.fetch_channel_history("testing", 3)
-for message in slack.get_channel_history("testing"):
+slack.fetch_history(["potatobuffer", "general"], 5)
+
+print("channel history for potatobuffer")
+for message in slack.get_channel_history("potatobuffer"):
     print("\t" + message["name"] + ":\t" + message["text"])
 
-print("im history for potatobuffer")
-slack.fetch_channel_history("potatobuffer", 5)
-for message in slack.get_channel_history("potatobuffer"):
+print("im history for general")
+for message in slack.get_channel_history("general"):
     print("\t" + message["name"] + ":\t" + message["text"])
 
 
