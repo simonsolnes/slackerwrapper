@@ -112,5 +112,5 @@ class SlackerWrapper():
     def get_channels(self):
         return self.channels
 
-    def get_channel_history(self, channel):
+    def get_history(self, channel):
         return self.ch_his[channel]
