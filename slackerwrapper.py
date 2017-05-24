@@ -4,7 +4,6 @@ import threading
 import queue
 import http.client
 
-
 class SlackerWrapper():
     def __init__(self):
         try:
@@ -102,8 +101,8 @@ class SlackerWrapper():
     def send_message(self, channel, text):
         if not self.has_internet(): raise Exception("no internet")
         if channel not in self.channels: raise Exception("not a channel")
-        self.channels_id[channel]
-        data = self.slacker.chat.post_message( channel = channel, text = text, as_user = True, link_names = True, unfurl_links = False, unfurl_media = False).body
+
+        data = self.slacker.chat.post_message( channel = self.channels_id[channel], text = text, as_user = True, link_names = True, unfurl_links = False, unfurl_media = False).body
         if not data["ok"]: raise Exception("cannot send message")
 
     def get_users(self):
